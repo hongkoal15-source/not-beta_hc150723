@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>🔥 초등 상식 퀴즈 - 전체 티어 & 문제 🔥</title>
+<style>
+body { margin:0; padding:0; font-family:Arial; text-align:center; color:white; transition: background 1s;}
+.box { max-width:700px; margin:50px auto; padding:20px; background:rgba(0,0,0,0.7); border-radius:10px; transition: transform 0.5s;}
+input,button { padding:10px; font-size:16px;}
+#scoreBox{margin:10px 0; font-size:18px;}
+.combo-effect { animation: comboPop 0.5s; }
+@keyframes comboPop {0%{transform:scale(1);}50%{transform:scale(1.5);}100%{transform:scale(1);}}
+canvas#stars { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:-1;}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<div class="box" id="box">
+  <h1>🔥 초등 상식 퀴즈 🔥</h1>
+  <div id="scoreBox">
+    점수: <span id="score">0</span> | 콤보: <span id="combo">0</span> | 티어: <span id="tier">나무</span> | 일일보상: <span id="daily">0</span>
+  </div>
+  <p id="question"></p>
+  <input id="answer" placeholder="정답 입력">
+  <br><br>
+  <button id="btn">제출</button>
+  <p id="result"></p>
+</div>
+
+<audio id="bgm" loop></audio>
+
+<script>
+// ---------------------
+// 문제 (초등 상식용 예시 20문제)
+// ---------------------
+const quiz = [
+  {q:"대한민국의 수도는?", a:["서울"]},
+  {q:"1+1은?", a:["2","둘"]},
+  {q:"하늘에서 내리는 것은?", a:["비","눈"]},
+  {q:"겨울에 눈이 내리면 무엇을 만들 수 있나요?", a:["눈사람","눈오리"]},
+  {q:"물의 화학식은?", a:["H2O"]},
+  {q:"사과의 색깔은?", a:["빨강","빨간색"]},
+  {q:"오렌지 색깔은?", a:["주황","주황색"]},
+  {q:"하늘은 보통 무슨 색?", a:["파랑","파란색"]},
+  {q:"달은 무엇이 보이나요?", a:["달","달빛"]},
+  {q:"바나나는 무슨 색?", a:["노랑","노란색"]},
+  {q:"사자는 어디 사는 동물?", a:["사바나","초원"]},
+  {q:"펭귄은 어느 대륙에 주로 살까요?", a:["남극","남극대륙"]},
+  {q:"바다는 어떤 색?", a:["파랑","파란색"]},
+  {q:"토마토 색깔?", a:["빨강","빨간색"]},
+  {q:"포도 색깔?", a:["보라","보라색"]},
+  {q:"기린 목이 긴 이유?", a:["먹이","나무"]},
+  {q:"돼지는 무엇을 먹나요?", a:["사료","음식"]},
+  {q:"물고기는 어디에서 사나요?", a:["물","물속"]},
+  {q:"하마는 어디에서 사나요?", a:["강","물"]},
+  {q:"달팽이는 무엇을 가지고 이동하나요?", a:["발","점액"]}
+];
+
+function shuffle(array){for(let i=array.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [array[i],array[j]]=[array[j],array[i]]}}
+shuffle(quiz);
+
+let score=0, combo=0, index=0, daily=0;
+
+// DOM
+const scoreSpan=document.getElementById("score");
+const comboSpan=document.getElementById("combo");
+const tierText=document.getElementById("tier");
+const question=document.getElementById("question");
+const answer=document.getElementById("answer");
+const result=document.getElementById("result");
+const btn=document.getElementById("btn");
+const dailySpan=document.getElementById("daily");
+const bgm=document.getElementById("bgm");
+const box=document.getElementById("box");
+
+// ---------------------
+// 티어 목록 (점수 기준 정상화)
+// ---------------------
+const tiers = [
+  {score:0,name:"나무",bg:"#111",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_77c5ef1f7b.mp3?filename=upbeat-pop-13632.mp3"},
+  {score:10,name:"브론즈",bg:"#2b2b2b",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_77c5ef1f7b.mp3?filename=upbeat-pop-13632.mp3"},
+  {score:20,name:"실버",bg:"#555",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_75d1a40c7f.mp3?filename=energetic-pop-13703.mp3"},
+  {score:30,name:"골드",bg:"#daa520",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_75d1a40c7f.mp3?filename=energetic-pop-13703.mp3"},
+  {score:50,name:"플래티넘",bg:"#e5e4e2",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_8fc8a3ee27.mp3?filename=epic-anthem-13202.mp3"},
+  {score:66,name:"다이아",bg:"#00ffff",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_8fc8a3ee27.mp3?filename=epic-anthem-13202.mp3"},
+  {score:100,name:"레드 다이아",bg:"#ff0000",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_2d1a74c58c.mp3?filename=epic-hero-13761.mp3"},
+  {score:150,name:"블루 다이아",bg:"#00f",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_2d1a74c58c.mp3?filename=epic-hero-13761.mp3"},
+  {score:200,name:"그랜드 핑크 다이아",bg:"#ff69b4",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_3b43b5e1e1.mp3?filename=epic-intense-13247.mp3"},
+  {score:500,name:"방사능 물질",bg:"#ffcc00",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_3b43b5e1e1.mp3?filename=epic-intense-13247.mp3"},
+  {score:700,name:"반물질",bg:"#444",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_3b43b5e1e1.mp3?filename=epic-intense-13247.mp3"},
+  {score:1000,name:"우주",bg:"black",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:1500,name:"사탕보석",bg:"#ff6699",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:2500,name:"마스터",bg:"#ffaa00",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:5000,name:"그랜드 마스터",bg:"#dd00ff",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:6000,name:"랭커",bg:"#00ddff",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:7000,name:"챌린저",bg:"#ffaa77",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:7500,name:"썩은물",bg:"#223322",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:8500,name:"괴물",bg:"#110000",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:9000,name:"탈인간",bg:"#111111",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:9500,name:"레인보우 다이아",bg:"linear-gradient(45deg,#ff0000,#00ff00,#0000ff)",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"},
+  {score:10000,name:"신",bg:"linear-gradient(45deg,#ffffff,#ff00ff,#00ffff)",music:"https://cdn.pixabay.com/download/audio/2022/03/15/audio_6c77e7f99f.mp3?filename=epic-space-13845.mp3"}
+];
+
+// ---------------------
+// 티어 업데이트
+// ---------------------
+function updateTier(){
+  let currentTier = tiers[0];
+  for(let i=0;i<tiers.length;i++){
+    if(score>=tiers[i].score){
+      currentTier=tiers[i];
+    } else { break; }
+  }
+  tierText.innerText=currentTier.name;
+  document.body.style.background=currentTier.bg;
+  bgm.src=currentTier.music;
+  bgm.play();
+
+  if(score>=1000){ initStars(); }
+}
+
+// 문제 로드
+function loadQuestion(){
+  if(index>=quiz.length){shuffle(quiz); index=0;}
+  question.innerText = quiz[index].q;
+  answer.value = "";
+  result.innerText = "";
+}
+
+// 제출 버튼
+btn.addEventListener("click", ()=>{
+  if(bgm.paused){ bgm.play(); }
+  const user=answer.value.replace(/\s/g,"");
+  let correct=quiz[index].a.map(x=>x.replace(/\s/g,""));
+  if(correct.includes(user)){
+    combo++; score+=combo; 
+    result.innerText="정답! +" + combo + "점"; 
+    comboSpan.classList.add("combo-effect");
+    setTimeout(()=>comboSpan.classList.remove("combo-effect"),500);
+  }else{ combo=0; result.innerText="틀림!";}
+  scoreSpan.innerText=score;
+  comboSpan.innerText=combo;
+  updateTier();
+  index=Math.floor(Math.random()*quiz.length);
+  loadQuestion();
+});
+
+// 일일보상
+daily+=20; score+=20; dailySpan.innerText=daily; scoreSpan.innerText=score; updateTier();
+
+// 초기 문제
+loadQuestion();
+
+// ---------------------
+// 별 효과 (우주 티어 이상)
+// ---------------------
+const canvas=document.getElementById("stars");
+const ctx=canvas.getContext("2d");
+let starsArray=[], numStars=100;
+
+function initStars(){
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+  starsArray=[];
+  for(let i=0;i<numStars;i++){
+    starsArray.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      r:Math.random()*2,
+      d:Math.random()*1
+    });
+  }
+  animateStars();
+}
+
+function animateStars(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<starsArray.length;i++){
+    let s=starsArray[i];
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle="white";
+    ctx.fill();
+    s.y+=s.d;
+    if(s.y>canvas.height){s.y=0; s.x=Math.random()*canvas.width;}
+  }
+  requestAnimationFrame(animateStars);
+}
+
+window.addEventListener("resize",initStars);
+</script>
+</body>
+</html>
